@@ -1,0 +1,4 @@
+threshold = "10"
+nonce = "123456789"
+balance = "15"
+secret_nonce = "123456789"
