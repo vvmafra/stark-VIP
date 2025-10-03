@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { connect, disconnect } from "@starknet-io/get-starknet";
-import { WalletAccount, RpcProvider } from "starknet";
+import { WalletAccount, RpcProvider, Contract } from "starknet";
 import { generateProof, generateProofAlternative, ProofGenerationService } from "./services/generateProof";
 import type { ProofInputs, ProofResult, ProgressCallback } from "./services/generateProof";
 import { Header } from "./components/Header";
@@ -30,7 +30,7 @@ export default function App() {
   const [progressText, setProgressText] = useState<string>("");
   const [threshold, setThreshold] = useState<string>("100"); // público
   const [nonce, setNonce] = useState<string>(() => ProofGenerationService.generateRandomNonce()); // público (client-side)
-  const [balance, setBalance] = useState<string>("1000");     // privado (será atualizado com saldo real)
+  const [balance, setBalance] = useState<string>("0");     // privado (será atualizado com saldo real)
   const [proofResult, setProofResult] = useState<ProofResult | null>(null);
   const [proofData, setProofData] = useState<any>(null);
 
@@ -48,6 +48,53 @@ export default function App() {
       }
     }
   }, [walletAccount]);
+
+  // Function to get real STRK balance from contract
+  const getRealSTRKBalance = async (walletAddress: string): Promise<string> => {
+    try {
+      const provider = new RpcProvider({ 
+        nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8" 
+      });
+
+      // STRK token contract address on Sepolia
+      const strkContractAddress = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+
+      // Get STRK contract ABI (simplified for balanceOf)
+      const strkAbi = [
+        {
+          "name": "balanceOf",
+          "type": "function",
+          "inputs": [
+            {
+              "name": "account",
+              "type": "felt"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "balance",
+              "type": "Uint256"
+            }
+          ],
+          "stateMutability": "view"
+        }
+      ];
+
+      const strkContract = new Contract(strkAbi, strkContractAddress, provider);
+      
+      // Call balanceOf function
+      const result = await strkContract.balanceOf(walletAddress);
+      
+      // Convert from wei to STRK (divide by 10^18)
+      const balanceInWei = BigInt(result.balance.low) + (BigInt(result.balance.high) << 128n);
+      const balanceInSTRK = balanceInWei / BigInt(10**18);
+      
+      return balanceInSTRK.toString();
+    } catch (error) {
+      console.error("Error fetching STRK balance:", error);
+      return "0";
+    }
+  };
 
   async function generateProofHandler() {
     try {
@@ -172,8 +219,18 @@ export default function App() {
         const walletAccount = await WalletAccount.connect(provider, starknet);
         setWalletAccount(walletAccount);
         
-        // Balance will be set manually or use default
+        // Get real STRK balance
         console.log("Wallet connected:", walletAccount.address);
+        console.log("Fetching STRK balance...");
+        
+        try {
+          const realBalance = await getRealSTRKBalance(walletAccount.address);
+          setBalance(realBalance);
+          console.log("STRK Balance:", realBalance);
+        } catch (error) {
+          console.error("Error fetching balance:", error);
+          setBalance("0");
+        }
       }
     } catch (error) {
       console.error("Error connecting wallet:", error);

@@ -32,21 +32,10 @@ export const GenerateProofForm = ({
   const [error, setError] = useState("");
   const [realBalance, setRealBalance] = useState(balance);
 
-  // Get real balance from wallet
+  // Update balance when prop changes
   useEffect(() => {
-    const fetchBalance = async () => {
-      if (walletAccount) {
-        try {
-          // Use the balance prop passed from parent instead of fetching
-          setRealBalance(balance);
-        } catch (error) {
-          console.error("Error setting balance:", error);
-        }
-      }
-    };
-
-    fetchBalance();
-  }, [walletAccount, balance]);
+    setRealBalance(balance);
+  }, [balance]);
 
   const handleGenerateProof = async () => {
     setIsGenerating(true);
