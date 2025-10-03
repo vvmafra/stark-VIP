@@ -1,6 +1,5 @@
 "use client"
 
-import { Card } from "./Card"
 import { Button } from "./Button"
 
 interface LoginScreenProps {
