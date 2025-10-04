@@ -67,6 +67,11 @@ export const generateProof = async (
     onProgress?.(70, "Gerando prova...");
     const { proof, publicInputs } = await backend.generateProof(witness);
     const vk = await backend.getVerificationKey();
+
+    console.log("Proof:", proof);
+    console.log("Public Inputs:", publicInputs);
+    console.log("Verification Key:", vk);
+    
     console.log("✅ Proof generated:", { proofLength: proof.length, publicInputs });
 
     onProgress?.(80, "Verificando prova localmente...");
@@ -148,7 +153,7 @@ export const generateProofAlternative = async (
   try {
     onProgress?.(10, "Carregando dependências...");
     
-    // Importar dependências
+    // Importar dependências conforme tutorial oficial
     const { UltraHonkBackend } = await import("@aztec/bb.js");
     const { Noir } = await import("@noir-lang/noir_js");
     
@@ -225,18 +230,74 @@ export const generateProofAlternative = async (
       balance: inputs.balance,
       secret_nonce: inputs.secret_nonce,
     });
+    console.log("✅ Witness generated");
 
     onProgress?.(70, "Gerando prova...");
     const { proof, publicInputs } = await backend.generateProof(witness);
     const vk = await backend.getVerificationKey();
 
-    onProgress?.(80, "Verificando prova...");
-    const isValid = await backend.verifyProof({ proof, publicInputs });
+    console.log("Proof:", proof);
+    console.log("Public Inputs:", publicInputs);
+    console.log("Verification Key:", vk);
+    
+    console.log("✅ Proof generated:", { proofLength: proof.length, publicInputs });
 
-    onProgress?.(90, "Finalizando...");
-    const proofB64 = btoa(String.fromCharCode(...proof));
+    onProgress?.(80, "Verificando prova localmente...");
+    const isValid = await backend.verifyProof({ proof, publicInputs });
+    console.log("✅ Proof verified locally:", isValid);
+
+    onProgress?.(85, "Enviando para API para verificação...");
+    
+    // Enviar para API para verificação no contrato Starknet usando nova interface
+    const apiUrl = 'http://localhost:3001';
+    
+    console.log("🔄 Enviando dados para API:", {
+      apiUrl: `${apiUrl}/api/verify`,
+      proofLength: proof.length,
+      publicInputsLength: Array.isArray(publicInputs) ? publicInputs.length : 1,
+      verificationKeyLength: vk.length
+    });
+    
+    try {
+      // Usar a nova interface simplificada que usa arquivos do projeto
+      const apiResponse = await fetch(`${apiUrl}/api/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}) // A nova API usa arquivos padrão do projeto
+      });
+
+      console.log("📡 Resposta da API:", {
+        status: apiResponse.status,
+        statusText: apiResponse.statusText,
+        ok: apiResponse.ok
+      });
+
+      const apiResult = await apiResponse.json();
+      console.log("📋 Resultado da API:", apiResult);
+      
+      if (apiResult.success) {
+        console.log("✅ Prova verificada com sucesso na API:", apiResult.result);
+        onProgress?.(95, "Prova validada no contrato Starknet!");
+      } else {
+        console.warn("⚠️ Falha na verificação da API:", apiResult.error);
+        onProgress?.(95, "Prova gerada, mas falha na validação da API");
+      }
+    } catch (apiError: any) {
+      console.error("❌ Erro ao enviar para API:", apiError);
+      console.error("❌ Detalhes do erro:", {
+        message: apiError.message,
+        name: apiError.name,
+        stack: apiError.stack
+      });
+      onProgress?.(95, "Prova gerada, mas erro na validação da API");
+    }
 
     onProgress?.(100, "Prova gerada com sucesso!");
+
+    // Gerar proofB64 para compatibilidade
+    const proofB64 = btoa(String.fromCharCode(...proof));
 
     return {
       proof,
@@ -247,6 +308,7 @@ export const generateProofAlternative = async (
     };
   } catch (err: any) {
     console.error("💔 Falha na geração de prova (método alternativo)", err);
+    console.error("Stack trace:", err.stack);
     throw new Error(err.message || "Falha na geração de prova");
   }
 };

@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"o7q230u5m9hge","package_name":"starkvip","contract_name":"UltraStarknetZKHonkVerifier","module_path":"starkvip::honk_verifier::UltraStarknetZKHonkVerifier","artifacts":{"sierra":"starkvip_UltraStarknetZKHonkVerifier.contract_class.json","casm":"starkvip_UltraStarknetZKHonkVerifier.compiled_contract_class.json"}}]}

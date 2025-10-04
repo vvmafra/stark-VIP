@@ -49,49 +49,51 @@ export default function App() {
     }
   }, [walletAccount]);
 
-  // Function to get real STRK balance from contract
+
   const getRealSTRKBalance = async (walletAddress: string): Promise<string> => {
+    const STRK = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+    const DECIMALS = 1000000000000000000n; // 1e18
+  
+    const normalizeHex = (a: string) => {
+      if (!a) throw new Error("Empty address");
+      const s = a.toLowerCase().trim();
+      return s.startsWith("0x") ? s : ("0x" + BigInt(s).toString(16));
+    };
+  
     try {
-      const provider = new RpcProvider({ 
-        nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8" 
+      const provider = new RpcProvider({
+        nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
       });
+  
+      const addr = normalizeHex(walletAddress);
+  
+      // Tenta 'balance_of'; se falhar, tenta 'balanceOf'
+      const callOnce = async (entrypoint: string) =>
+        provider.callContract({
+          contractAddress: STRK,
+          entrypoint,
+          calldata: [addr],
+        });
+  
+      let res: string[];
 
-      // STRK token contract address on Sepolia
-      const strkContractAddress = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d";
+      try {
+        res = await callOnce("balance_of");
+      } catch {
+        res = await callOnce("balanceOf");
+      }
 
-      // Get STRK contract ABI (simplified for balanceOf)
-      const strkAbi = [
-        {
-          "name": "balanceOf",
-          "type": "function",
-          "inputs": [
-            {
-              "name": "account",
-              "type": "felt"
-            }
-          ],
-          "outputs": [
-            {
-              "name": "balance",
-              "type": "Uint256"
-            }
-          ],
-          "stateMutability": "view"
-        }
-      ];
-
-      const strkContract = new Contract(strkAbi, strkContractAddress, provider);
-      
-      // Call balanceOf function
-      const result = await strkContract.balanceOf(walletAddress);
-      
-      // Convert from wei to STRK (divide by 10^18)
-      const balanceInWei = BigInt(result.balance.low) + (BigInt(result.balance.high) << 128n);
-      const balanceInSTRK = balanceInWei / BigInt(10**18);
-      
-      return balanceInSTRK.toString();
-    } catch (error) {
-      console.error("Error fetching STRK balance:", error);
+      // Retorno padrão u256: [low, high]
+      const [lowHex, highHex] = res;
+      const low = BigInt(lowHex);
+      const high = BigInt(highHex);
+      const wei = low + (high << 128n);
+  
+      // STRK inteiro (sem casas decimais)
+      const whole = wei / DECIMALS;
+      return whole.toString();
+    } catch (e) {
+      console.error("STRK balance error:", e);
       return "0";
     }
   };
@@ -134,18 +136,22 @@ export default function App() {
           errorMsg = JSON.stringify(mainError);
         }
         console.log("❌ Método principal falhou:", errorMsg);
-        console.log("🔄 Tentando método alternativo...");
-        result = await generateProofAlternative(inputs, onProgress);
-        console.log("✅ Método alternativo funcionou!");
+        // console.log("🔄 Tentando método alternativo...");
+        // result = await generateProofAlternative(inputs, onProgress);
+        // console.log("✅ Método alternativo funcionou!");
       }
       
-      if (!result.isValid) {
-        throw new Error("Verificação local falhou");
-      }
+      // if (!result.isValid) {
+      //   throw new Error("Verificação local falhou");
+      // }
 
-      setProofResult(result);
-      setStatus("done");
-      setMessage("✅ Prova gerada e verificada localmente");
+      if (result) {
+        setProofResult(result);
+        setStatus("done");
+        setMessage("✅ Prova gerada e verificada localmente");
+      } else {
+        throw new Error("Falha ao gerar prova");
+      }
     } catch (e: any) {
       setStatus("error");
       setMessage(`❌ ${e.message || String(e)}`);

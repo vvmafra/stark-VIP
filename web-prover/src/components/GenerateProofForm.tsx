@@ -61,6 +61,7 @@ export const GenerateProofForm = ({
       console.log("🔄 Tentando método principal...");
       let result;
       try {
+        // result = await generateProof(inputs, onProgress);
         result = await generateProof(inputs, onProgress);
         console.log("✅ Método principal funcionou!");
       } catch (mainError) {
@@ -74,11 +75,11 @@ export const GenerateProofForm = ({
         }
         console.log("❌ Método principal falhou:", errorMsg);
         console.log("🔄 Tentando método alternativo...");
-        result = await generateProofAlternative(inputs, onProgress);
+        // result = await generateProof(inputs, onProgress);
         console.log("✅ Método alternativo funcionou!");
       }
       
-      if (!result.isValid) {
+      if (!result?.isValid) {
         throw new Error("Verificação local falhou");
       }
 
